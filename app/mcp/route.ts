@@ -1,11 +1,33 @@
 import { baseURL } from "@/baseUrl";
 import { createMcpHandler } from "mcp-handler";
 import { z } from "zod";
+import { NextRequest, NextResponse } from "next/server";
 
 const getAppsSdkCompatibleHtml = async (baseUrl: string, path: string) => {
   const result = await fetch(`${baseUrl}${path}`);
   return await result.text();
 };
+
+// Validate OAuth token
+function validateToken(req: NextRequest): boolean {
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader) return true; // Allow unauthenticated access for now
+
+  if (!authHeader.startsWith('Bearer ')) return false;
+
+  const token = authHeader.substring(7);
+  try {
+    // Decode and validate the token
+    const tokenData = JSON.parse(
+      Buffer.from(token, 'base64url').toString('utf-8')
+    );
+    // Check if token is expired (1 hour expiry)
+    if (Date.now() - tokenData.issued > 3600000) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 type ContentWidget = {
   id: string;
