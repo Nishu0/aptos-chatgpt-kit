@@ -1,11 +1,6 @@
-import { Aptos, AptosConfig, Network, Account, Ed25519PrivateKey } from "@aptos-labs/ts-sdk";
+import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
 
-// External wallet configuration
-// Set to true to use external wallet (Petra/Martian) for signing
-// Set to false to use server-side private key for signing
-export const externalWallet = true;
-
-// Token coin types (Move resource addresses)
+// token coin types (move resource addresses)
 export const TOKENS = {
   APT: "0x1::aptos_coin::AptosCoin",
   USDC: "0xf22bede237a07e121b56d91a491eb7bcdfd1f5907926a9e58338f964a01b17fa::asset::USDC", // LayerZero USDC
@@ -20,7 +15,7 @@ export const TOKEN_DECIMALS = {
   WETH: 8,
 } as const;
 
-// Liquidswap (Pontem Network) configuration
+//liquidswap (pontem network) configuration
 export const LIQUIDSWAP = {
   // Liquidswap router and pool addresses
   SCRIPTS_V05: "0x190d44266241744264b964a37b8f09863167a12d3e70cda39376cfb4e3561e12",
@@ -31,9 +26,9 @@ export const LIQUIDSWAP = {
   }
 } as const;
 
-// Aptos Staking configuration
+// aptos Staking configuration
 export const STAKING = {
-  // Delegation pool module
+  // delegation pool module
   DELEGATION_POOL: "0x1::delegation_pool",
   MIN_STAKE: 11_000_000, // 0.11 APT in octas
 } as const;
@@ -65,31 +60,7 @@ export function getAptosClient(): Aptos {
   return new Aptos(config);
 }
 
-// Get wallet account from environment (only used when externalWallet is false)
-export function getWalletAccount(): Account {
-  if (externalWallet) {
-    throw new Error("getWalletAccount should not be called when externalWallet is true");
-  }
 
-  const privateKey = process.env.APTOS_PRIVATE_KEY;
-
-  if (!privateKey) {
-    throw new Error("APTOS_PRIVATE_KEY not found in environment variables");
-  }
-
-  try {
-    // Remove 0x prefix if present
-    const cleanKey = privateKey.startsWith("0x") ? privateKey.slice(2) : privateKey;
-
-    // Create Ed25519PrivateKey from hex string
-    const privateKeyObj = new Ed25519PrivateKey(cleanKey);
-
-    // Derive account from private key
-    return Account.fromPrivateKey({ privateKey: privateKeyObj });
-  } catch (error) {
-    throw new Error(`Invalid APTOS_PRIVATE_KEY format. Must be hex encoded. Error: ${error}`);
-  }
-}
 
 // Liquidswap API endpoints (if available)
 // Note: Liquidswap doesn't have a centralized quote API like Jupiter

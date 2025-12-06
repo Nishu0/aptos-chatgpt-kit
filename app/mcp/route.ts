@@ -292,7 +292,7 @@ const handler = createMcpHandler(async (server) => {
         "Fetch APT and token balances for a wallet address or ANS domain (.apt)",
       inputSchema: {
         account: z.string().describe("Aptos address or ANS domain (e.g., user.apt)"),
-      } as any,
+      },
       _meta: {
         "openai/resultCanProduceWidget": false,
       },

@@ -51,12 +51,9 @@ Create a `.env.local` file:
 APTOS_NETWORK=mainnet  # or testnet/devnet
 APTOS_RPC_URL=https://fullnode.mainnet.aptoslabs.com/v1  # Optional, uses default if not set
 
-# x402 Payment Protocol (Required for external wallet mode)
+# x402 Payment Protocol
 X402_TREASURY_ADDRESS=0x...  # Your Aptos address to receive payments
 FACILITATOR_URL=https://facilitator.payai.network  # x402 facilitator URL
-
-# Server Wallet Mode (Optional - only if not using external wallet)
-APTOS_PRIVATE_KEY=0x...  # Hex-encoded private key (only for server-side signing)
 ```
 
 ### Development
@@ -169,23 +166,7 @@ The MCP server (`/mcp`) exposes tools to ChatGPT:
 
 ## Wallet Integration
 
-### External Wallet Mode (Recommended)
-
-Set `externalWallet = true` in `lib/aptos-config.ts`:
-
-- Users connect their own wallets (Petra, Martian)
-- Transactions signed client-side
-- x402 payment protocol enabled
-- Better security for users
-
-### Server Wallet Mode
-
-Set `externalWallet = false` and provide `APTOS_PRIVATE_KEY`:
-
-- Server signs transactions
-- No x402 payments (server pays fees)
-- Best for automated operations
-- Less secure (requires private key storage)
+This MCP server uses external wallet mode exclusively. Users connect their own wallets (Petra, Martian) to sign transactions client-side. This is the only supported mode for ChatGPT MCP connectors since wallet private keys cannot be stored in the MCP server.
 
 ## Troubleshooting
 

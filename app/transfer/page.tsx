@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useWidgetProps } from "../hooks";
 import { useMaxHeight } from "../hooks/use-max-height";
 import { useOpenAIGlobal } from "../hooks/use-openai-global";
-import { externalWallet } from "@/lib/aptos-config";
 import { ensureWalletConnected, getWalletAddress, signAndSubmitTransaction } from "@/lib/wallet-utils";
 import { createX402Client } from "@/lib/x402/client";
 import { getAptosClient } from "@/lib/aptos-config";
@@ -45,74 +44,58 @@ export default function TransferPage() {
     setResult(null);
 
     try {
-      let userAddress: string | undefined;
-      let provider;
+      // Connect wallet and get address
+      const provider = await ensureWalletConnected();
+      const address = await getWalletAddress(provider);
+      if (!address) {
+        throw new Error("Failed to get wallet address");
+      }
+      const userAddress = address;
+      setWalletAddress(address);
 
-      // If using external wallet, connect and get address
-      if (externalWallet) {
-        provider = await ensureWalletConnected();
-        const address = await getWalletAddress(provider);
-        if (!address) {
-          throw new Error("Failed to get wallet address");
-        }
-        userAddress = address;
-        setWalletAddress(address);
+      // Get network from environment or default to mainnet
+      const networkEnv = process.env.NEXT_PUBLIC_APTOS_NETWORK || "mainnet";
+      const network = networkEnv === "mainnet" ? "mainnet" : networkEnv === "testnet" ? "testnet" : "devnet";
 
-        // Get network from environment or default to mainnet
-        const networkEnv = process.env.NEXT_PUBLIC_APTOS_NETWORK || "mainnet";
-        const network = networkEnv === "mainnet" ? "mainnet" : networkEnv === "testnet" ? "testnet" : "devnet";
+      // Create x402 client with connected wallet
+      const x402Client = createX402Client({
+        wallet: provider,
+        network,
+      });
 
-        // Create x402 client with connected wallet
-        const x402Client = createX402Client({
-          wallet: provider,
-          network,
+      // Use x402 client fetch - automatically handles 402 payment
+      const res = await x402Client.fetch("/api/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toAddress, amount, userAddress }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Failed to send APT");
+
+      // Sign and send the transaction
+      if (data.unsignedTransaction) {
+        const client = getAptosClient();
+        
+        // Build transaction from unsigned transaction payload
+        const pendingTxn = await client.transaction.build.simple({
+          sender: userAddress,
+          data: {
+            function: data.unsignedTransaction.function,
+            typeArguments: data.unsignedTransaction.type_arguments,
+            functionArguments: data.unsignedTransaction.arguments,
+          },
         });
 
-        // Use x402 client fetch - automatically handles 402 payment
-        const res = await x402Client.fetch("/api/transfer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ toAddress, amount, userAddress }),
-        });
+        // Sign and submit using wallet
+        const txHash = await signAndSubmitTransaction(provider, pendingTxn);
+        
+        // Wait for confirmation
+        await client.waitForTransaction({ transactionHash: txHash });
 
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Failed to send APT");
-
-        // If external wallet mode, sign and send the transaction
-        if (data.unsignedTransaction) {
-          const client = getAptosClient();
-          
-          // Build transaction from unsigned transaction payload
-          const pendingTxn = await client.transaction.build.simple({
-            sender: userAddress,
-            data: {
-              function: data.unsignedTransaction.function,
-              typeArguments: data.unsignedTransaction.type_arguments,
-              functionArguments: data.unsignedTransaction.arguments,
-            },
-          });
-
-          // Sign and submit using wallet
-          const txHash = await signAndSubmitTransaction(provider, pendingTxn);
-          
-          // Wait for confirmation
-          await client.waitForTransaction({ transactionHash: txHash });
-
-          const explorerUrl = `https://explorer.aptoslabs.com/txn/${txHash}?network=${network}`;
-          setResult({ txHash, explorerUrl });
-        } else {
-          setResult({ txHash: data.txHash, explorerUrl: data.explorerUrl });
-        }
+        const explorerUrl = `https://explorer.aptoslabs.com/txn/${txHash}?network=${network}`;
+        setResult({ txHash, explorerUrl });
       } else {
-        // Server wallet mode - regular fetch, no x402
-        const res = await fetch("/api/transfer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ toAddress, amount }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data?.error || "Failed to send APT");
-
         setResult({ txHash: data.txHash, explorerUrl: data.explorerUrl });
       }
     } catch (e) {
@@ -201,7 +184,7 @@ export default function TransferPage() {
           </div>
         ) : null}
 
-        {externalWallet && walletAddress ? (
+        {walletAddress ? (
           <div
             style={{
               fontSize: 12,
